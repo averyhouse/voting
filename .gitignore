@@ -1,0 +1,9 @@
+__pycache__
+
+.DS_Store
+
+logs/
+
+fetch_token/token.json
+oauth.json
+authorized_user.json

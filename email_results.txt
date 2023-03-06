@@ -1,0 +1,13 @@
+Hi {name}, 
+
+The survey has closed and the results have been counted:
+
+{results}
+
+Thank you for keeping Avery great,
+
+<3, your ExComm
+
+Survey ID: {survey_id}
+
+Github repo: https://github.com/averyhouse/voting

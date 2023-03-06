@@ -66,7 +66,7 @@ This framework interfaces Google surveys with Python for a clean front end and b
       - Required survey option: 1 response per column
       - Suggested survey options: shuffle row order, disable all confirmation page links
       - Example of a valid IRV Google survey: 
-      ![alt tag](https://raw.githubusercontent.com/jordanbonilla/OnlineVoting/master/example%20correct%20survey%20format.png)
+      ![alt tag](imgs/example%20correct%20survey%20format.png)
 
 5. A manually-created Google Survey (If you want to do a simple referendum vote)
       - The survey questions must be multiple choice 
@@ -79,7 +79,7 @@ This framework interfaces Google surveys with Python for a clean front end and b
       - This worksheet must be created manually and specified as the data destination when creating the survey (step 4)
       - Trying to re-use worksheets will result in failure
       - This step must be completed for every new survey
-      ![alt tag](https://raw.githubusercontent.com/jordanbonilla/OnlineVoting/master/worksheet%20guide.png)
+      ![alt tag](imgs/worksheet%20guide.png)
 
 # Notes:
 When choosing a local machine to run this script on, keep in mind that the script's execution can not be interrupted or the vote will end. Additionally, the script needs to internet access throughout the duration of its execution time so that it can actively check for vote manipulation. If you are using Linux to run the script, I highly reccomend runing the script inside a tmux session to avoid accidentally canceling the script.

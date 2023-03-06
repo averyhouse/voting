@@ -1,0 +1,12 @@
+
+# must be either "selective" or "referendum"
+vote_type = "selective"
+
+form_url =  ""
+
+worksheet_url = ""
+worksheet_title = ""
+
+vote_title = ""
+
+quorum = 100
