@@ -490,6 +490,9 @@ class OnlineVote:
 
             pos_votes.columns = [p.parse(col)[1] for col in pos_votes.columns]
 
+            pos_votes = pos_votes[pos_votes["Abstain"] != 1]
+            pos_votes = pos_votes.drop("Abstain", axis=1)
+
             r = 1
             winner = None
             while winner is None:
