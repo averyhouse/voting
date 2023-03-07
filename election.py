@@ -463,7 +463,7 @@ class OnlineVote:
     def get_results_selective(self):
         self.log("Started computing results for election...")
 
-        self.update_votes()
+        self.retry(self.update_votes)
 
         positions = []
         candidates = {}
@@ -535,7 +535,7 @@ class OnlineVote:
         # TODO: implement results for referendum
         pass
 
-    def retry(self, func, max_attempts=1000, timeout=2):
+    def retry(self, func, max_attempts=10000, timeout=2):
         try:
             ret = func()
             return ret
@@ -576,15 +576,15 @@ class OnlineVote:
         self.generate_voter_ids()
 
         self.email_links()
-        self.update_votes()
+        self.retry(self.update_votes)
 
         while len(self.get_valid_votes()) < self.config["quorum"]:
             self.log("Starting 24 hour voting period...")
             start = time.time()
             while time.time() - start < QUORUM_TIME_LIMIT:
-                self.update_votes()
+                self.retry(self.update_votes)
                 time.sleep(5)
-            self.update_votes()
+            self.retry(self.update_votes)
             self.log(
                 "{} valid votes collected out of {} for quorum".format(
                     len(self.get_valid_votes()), self.config["quorum"]
