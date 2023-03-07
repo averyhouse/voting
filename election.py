@@ -292,7 +292,7 @@ class OnlineVote:
     def update_votes(self):
         self.refresh_credentials()
 
-        raw = self.worksheet.get_values()
+        raw = self.retry(self.worksheet.get_values())
         if self.votes is not None:
             new = pd.DataFrame(data=raw[1:], columns=raw[0])
             if not self.votes.equals(new.head(n=len(self.votes))):
@@ -386,9 +386,7 @@ class OnlineVote:
 
         with open("email_results.txt", "r") as f:
             content = f.read()
-        # with open("logs.txt", "w") as f:
-        #     f.write("\n".join(self.logs))
-        # with open("logs.t")
+
         sent_message_ids = []
         for _, row in self.df.iterrows():
             fields = {}
@@ -405,11 +403,6 @@ class OnlineVote:
             message = EmailMessage()
             message.set_content(content.format(**fields))
 
-            # guessing the MIME type
-            # type_subtype, _ = mimetypes.guess_type("logs.txt")
-            # maintype, subtype = type_subtype.split("/")
-
-            # message.add_attachment("\n".join(self.logs), maintype, subtype)
             message.add_attachment(
                 "\n".join(self.logs).encode("utf-8"),
                 maintype="text",
@@ -463,7 +456,7 @@ class OnlineVote:
     def get_results_selective(self):
         self.log("Started computing results for election...")
 
-        self.retry(self.update_votes)
+        self.update_votes()
 
         positions = []
         candidates = {}
@@ -576,15 +569,15 @@ class OnlineVote:
         self.generate_voter_ids()
 
         self.email_links()
-        self.retry(self.update_votes)
+        self.update_votes()
 
         while len(self.get_valid_votes()) < self.config["quorum"]:
             self.log("Starting 24 hour voting period...")
             start = time.time()
             while time.time() - start < QUORUM_TIME_LIMIT:
-                self.retry(self.update_votes)
+                self.update_votes()
                 time.sleep(5)
-            self.retry(self.update_votes)
+            self.update_votes()
             self.log(
                 "{} valid votes collected out of {} for quorum".format(
                     len(self.get_valid_votes()), self.config["quorum"]
