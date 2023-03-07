@@ -1,0 +1,6 @@
+google_api_python_client==2.80.0
+gspread==5.7.2
+pandas==1.5.2
+parse==1.19.0
+protobuf==4.22.0
+toml==0.10.2
