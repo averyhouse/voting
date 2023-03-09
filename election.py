@@ -33,7 +33,7 @@ QUORUM_TIME_LIMIT = 86400
 class OnlineVote:
     VOTE_TYPES = ["selective", "referendum"]
 
-    def __init__(self, voter_file, config_file):
+    def __init__(self, config_file="config.toml"):
         self.config = None
         self.logs = []
 
@@ -49,16 +49,15 @@ class OnlineVote:
         self.password = None
 
         self.log("Election created!")
-        self.set_voters(voter_file)
         self.set_config(config_file)
 
     def log(self, s):
         """
-        Logs string to stdout and output which will be included in results email.
+        Logs string to stdout and log output which will be included in results email.
         """
         out = time.strftime("[%Y-%m-%d %H:%M:%S]: ", time.localtime())
-        print(out + s)
-        self.logs.append(out + s)
+        print(out + str(s))
+        self.logs.append(out + str(s))
 
     def exit(self, code):
         """
@@ -74,12 +73,13 @@ class OnlineVote:
         if code == -2:
             self.email_tampering()
         if code == -1:
-            with open("voter_ids.txt", "w") as f:
-                f.write("\n".join(list(self.df["voter_ids"])))
+            if self.df is not None:
+                with open("voter_ids.txt", "w") as f:
+                    f.write("\n".join(list(self.df["voter_ids"])))
 
         sys.exit(code)
 
-    def check_internet(self, host="8.8.8.8", port=53, timeout=1):
+    def check_internet(self, host="8.8.8.8", port=53, timeout=1, log=False):
         """
         Checks for internet access. Exits if no internet.
 
@@ -90,35 +90,54 @@ class OnlineVote:
             timeout (int): time to wait for response
         """
         try:
-            self.log("Pinging host...")
+            if log:
+                self.log("Pinging host...")
             socket.setdefaulttimeout(timeout)
             socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(
                 (host, port)
             )
-            self.log("Verified internet connection")
+            if log:
+                self.log("Verified internet connection")
         except socket.error as e:
-            self.log("FATAL: Unable to access internet")
+            self.log("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
 
     def set_voters(self, file):
         """
-        Gets voter names and email addresses from a csv file.
+        Fetches voter names and email addresses from a csv formatted file
+        or a Google Sheets location.
         """
         try:
             self.log("Fetching voter emails...")
-            self.df = pd.read_csv(
-                file,
-                names=["first_name", "nickname", "last_name", "email"],
-                header=0,
-            )
-        except FileNotFoundError as e:
-            self.log("FATAL: File not found")
-            self.exit(-1)
+            if "https://docs.google.com/spreadsheets" in file:
+                self.gc = gspread.oauth(
+                    credentials_filename="oauth.json",
+                    authorized_user_filename="authorized_user.json",
+                )
+                sh = self.gc.open_by_url(self.config["voters_file"])
+                worksheet = sh.worksheet(self.config["voters_sheet"])
+
+                raw = self.retry(worksheet.get_values)
+
+                self.df = pd.DataFrame(
+                    data=raw[1:],
+                    columns=["first_name", "nickname", "last_name", "email"],
+                )
+            else:
+                self.df = pd.read_csv(
+                    file,
+                    names=["first_name", "nickname", "last_name", "email"],
+                    header=0,
+                )
         except Exception as e:
-            self.log(e)
+            self.log("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
 
     def confirm_voters(self):
+        """
+        Prompts the user running the election to confirm the list of eligible
+        voters. Exits if list is not confirmed.
+        """
         self.log("List of voters participating:")
         self.log("\n" + self.df.to_string())
 
@@ -130,6 +149,10 @@ class OnlineVote:
             self.exit(-1)
 
     def generate_voter_ids(self):
+        """
+        Generates unique voter IDs for each eligible voter, as well as a
+        survey ID.
+        """
         voter_ids = []
         used_ids = set()
         for _ in range(len(self.df)):
@@ -174,17 +197,15 @@ class OnlineVote:
             self.log("Fetching configuration...")
             self.config = toml.load(file)
             self.check_config()
-        except TypeError:
-            self.log("FATAL: invalid config file name")
-            self.exit(-1)
-        except toml.TomlDecodeError:
-            self.log("FATAL: unable to read config file")
-            self.exit(-1)
         except Exception as e:
-            self.log(e)
+            self.log("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
 
     def check_config(self):
+        """
+        Basic validation for configurations settings for the election. Exits
+        if any of the checks are not met.
+        """
         try:
             if not all(
                 key in self.config
@@ -193,9 +214,14 @@ class OnlineVote:
                     "form_url",
                     "worksheet_url",
                     "worksheet_title",
+                    "vote_title",
+                    "voters_file",
+                    "voters_sheet",
+                    "quorum",
                 ]
             ):
                 self.log("FATAL: Configuration file missing fields")
+                self.exit(-1)
             if self.config["vote_type"] not in self.VOTE_TYPES:
                 self.log("FATAL: Invalid vote type")
                 self.exit(-1)
@@ -233,6 +259,10 @@ class OnlineVote:
             self.exit(-1)
 
     def repair_token(self):
+        """
+        Fills in necessary client_id and client_secret for the access token file,
+        since for some reason Google doesn't generate them.
+        """
         self.log("Repairing access token...")
 
         with open("fetch_token/token.json", "r") as old:
@@ -251,9 +281,15 @@ class OnlineVote:
 
         self.log("Access token repaired!")
 
-    def refresh_credentials(self):
+    def refresh_credentials(self, log=True):
+        """
+        Uses the refresh token to refresh authorized credentials for the Oauth
+        user. If you want to change which user is being logged in, delete
+        the file and rerun the authorization fetcher script.
+        """
         if not self.creds.valid:
-            self.log("Refreshing credentials...")
+            if log:
+                self.log("Refreshing credentials...")
 
             if self.creds.expired and self.creds.refresh_token:
                 self.creds.refresh(Request())
@@ -267,10 +303,12 @@ class OnlineVote:
                 credentials_filename="oauth.json",
                 authorized_user_filename="authorized_user.json",
             )
+
             self.sh = self.gc.open_by_url(self.config["worksheet_url"])
             self.worksheet = self.sh.worksheet(self.config["worksheet_title"])
 
-            self.log("Credentials refreshed!")
+            if log:
+                self.log("Credentials refreshed!")
 
     def set_worksheet(self):
         """
@@ -279,6 +317,7 @@ class OnlineVote:
         """
         try:
             self.log("Fetching results spreadsheet...")
+            self.refresh_credentials(log=False)
             self.gc = gspread.oauth(
                 credentials_filename="oauth.json",
                 authorized_user_filename="authorized_user.json",
@@ -286,13 +325,17 @@ class OnlineVote:
             self.sh = self.gc.open_by_url(self.config["worksheet_url"])
             self.worksheet = self.sh.worksheet(self.config["worksheet_title"])
         except Exception as e:
-            self.log(e)
+            self.log("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
 
     def update_votes(self):
-        self.refresh_credentials()
+        """
+        Fetches votes from the Google Form response Sheet. Exits if any tampering
+        is detected.
+        """
+        self.refresh_credentials(log=False)
 
-        raw = self.retry(self.worksheet.get_values())
+        raw = self.retry(self.worksheet.get_values)
         if self.votes is not None:
             new = pd.DataFrame(data=raw[1:], columns=raw[0])
             if not self.votes.equals(new.head(n=len(self.votes))):
@@ -315,6 +358,7 @@ class OnlineVote:
 
             self.log("Email verified!")
         except Exception as e:
+            self.log("{}: {}".format(e.__class__.__name__, str(e)))
             self.log(e)
             self.exit(-1)
 
@@ -545,7 +589,7 @@ class OnlineVote:
                     ret = func()
                     break
                 except:
-                    self.check_internet()
+                    self.check_internet(log=False)
                     time.sleep(timeout ** (attempts // 10))
             if attempts == max_attempts:
                 self.log("Automatic retries failed, unable to connect.")
@@ -556,12 +600,15 @@ class OnlineVote:
 
     def run_election(self):
         self.log("Election started!")
-        self.check_internet()
-
-        self.confirm_voters()
-        self.confirm_config()
+        self.check_internet(log=True)
 
         self.repair_token()
+
+        self.confirm_config()
+
+        self.set_voters(self.config["voters_file"])
+
+        self.confirm_voters()
 
         self.set_worksheet()
         self.verify_email()
@@ -574,7 +621,7 @@ class OnlineVote:
         while len(self.get_valid_votes()) < self.config["quorum"]:
             self.log("Starting 24 hour voting period...")
             start = time.time()
-            while time.time() - start < QUORUM_TIME_LIMIT:
+            while time.time() - start < 60:
                 self.update_votes()
                 time.sleep(5)
             self.update_votes()
@@ -597,5 +644,5 @@ class OnlineVote:
 
 
 if __name__ == "__main__":
-    ov = OnlineVote(voter_file="voters.txt", config_file="config.toml")
+    ov = OnlineVote()
     ov.run_election()

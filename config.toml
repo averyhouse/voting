@@ -9,4 +9,7 @@ worksheet_title = ""
 
 vote_title = ""
 
+voters_file = ""
+voters_sheet = ""
+
 quorum = 100
