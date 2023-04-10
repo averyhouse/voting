@@ -1,4 +1,66 @@
-## Caltech Avery House Online Voting Project 
+# Caltech Avery House Online Voting Project 
+---
+
+# Requirements
+- GoLang installation
+- Python 3.x installation
+- Git installation
+- packages in `requirements.txt`
+- Oauth key for a Google Cloud Project with Sheets, Drive, and Gmail APIs enabled
+
+# Instructions
+1. Install GoLang (test using `go version`) 
+2. Install Python (test using `python --version`)
+3. Install Git (test using `git version`)
+4. `git clone` this repository to create a local copy.
+5. Download an OAuth key from Google Cloud by:
+      1. Navigate to `console.cloud.google.com`
+      2. Select the project `OnlineVoting` in the project menu (top left)
+      3. Use the menu (top left) to navigate to `APIs & Services > Credentials`
+      4. Download the `OnlineVoting` OAuth 2.0 Client ID as `oauth.json` and
+            save this in the `voting` directory
+6. Run the script to validate credentials by opening a command shell, running
+      `cd fetch_token` to move into the `fetch_token` directory, and running
+      `go run fetch_token.go`.
+      1. In the command line, this will print out a URL with a prompt to
+            authorize by following the link. Copy paste this link into a
+            browser window.
+      2. Select the averyexcomm@gmail.com account to log into. After logging
+            in, you will get a warning about an unverified app (Don't worry,
+            this app is safe :D). Hit `Advanced > Go to ov (unsafe)` to ignore
+            the warning.
+      3. Check all the boxes to give all permissions to the script.
+      4. You will now get an error that says `localhost refused to connect`. Go
+            to the URL in the address bar. You should see something like
+            `...&code=<long-string>&scope=...` in the URL.
+      5. Copy the string after `&code=` and paste it into the command line
+            after the authentication URL and hit Enter.
+      6. This should create a file called `token.json`
+            in the `fetch_token` directory. If this worked correctly, it
+            should also print out all the email labels/folders found on the
+            account in the command line.
+7. Install the requirements to run the python script by running 
+      `pip install -r requirements.txt`
+8. Configure the settings in `config.toml` with:
+      - vote type: must be either "selective", "referendum", or
+            "2/3 referendum". If the vote type is "selective", the choices
+            must be multiple choice grid rankings. If the vote type is a
+            referendum type, the questions must be multiple choice with
+            options "YES", "NO", or "Abstain".
+      - form URL: must be prefilled link to Google Forms. See below on how to
+            get link.
+      - worksheet URL: sheet with results from form, shared with
+            averyexcomm@gmail.com
+      - sheet title: i.e. "Form Responses 1" from above
+      - vote title: i.e. xxxx Avery Excomm Election
+      - voters list: can either be a Google Sheet URL or a CSV text file
+      - voters sheet title: if using a Google Sheet, i.e. "Sheet1"
+      - quorum
+9. Check that each Google Sheet has been shared with averyexcomm@gmail.com.
+10. You are now ready to run the script! Run `python election.py` to start the
+      script! DO NOT TOUCH IT ONCE THE SCRIPT HAS STARTED!! Everything will
+      happen automatically, be sure that your computer stays on and the
+      window with the command line stays open.
 
 # Goals:
 1. Create a free, secure, transparent, anonymized, convinient online voting system.

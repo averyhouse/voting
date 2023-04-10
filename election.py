@@ -568,9 +568,36 @@ class OnlineVote:
 
         return "\n".join(results)
 
-    def get_results_referendum(self):
-        # TODO: implement results for referendum
-        pass
+    def get_results_referendum(self, prop):
+        self.log("Started computing results for election...")
+
+        self.update_votes()
+
+        valid_votes = self.get_valid_votes()
+
+        results = []
+
+        for a in valid_votes.columns:
+            self.log("-" * 80)
+
+            res = valid_votes[a].value_counts()
+
+            y = res["YES"]
+            n = res["NO"]
+
+            results.append(a)
+            self.log(a)
+
+            if y / (y + n) >= prop:
+                results.append("PASSED ({} YES, {} NO)".format(y, n))
+                self.log("PASSED ({} YES, {} NO)".format(y, n))
+            else:
+                results.append("REJECTED ({} YES, {} NO)".format(y, n))
+                self.log("REJECTED ({} YES, {} NO)".format(y, n))
+
+            self.log("-" * 80)
+
+        return "\n".join(results)
 
     def retry(self, func, max_attempts=10000, timeout=2):
         try:
@@ -636,7 +663,9 @@ class OnlineVote:
         if self.config["vote_type"] == "selective":
             results = self.get_results_selective()
         elif self.config["vote_type"] == "referendum":
-            results = self.get_results_referendum()
+            results = self.get_results_referendum(1 / 2)
+        elif self.config["vote_type"] == "2/3 referendum":
+            results = self.get_results_referendum(2 / 3)
 
         self.email_results(results)
 
