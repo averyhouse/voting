@@ -73,7 +73,7 @@ class OnlineVote:
         if code == -2:
             self.email_tampering()
         if code == -1:
-            if self.df is not None:
+            if self.df is not None and "voter_ids" in self.df.columns:
                 with open("voter_ids.txt", "w") as f:
                     f.write("\n".join(list(self.df["voter_ids"])))
 
@@ -577,13 +577,11 @@ class OnlineVote:
 
         results = []
 
-        for a in valid_votes.columns:
+        for a in valid_votes.columns[1:-1]:
             self.log("-" * 80)
 
-            res = valid_votes[a].value_counts()
-
-            y = res["YES"]
-            n = res["NO"]
+            y = (valid_votes[a] == "YES").sum()
+            n = (valid_votes[a] == "NO").sum()
 
             results.append(a)
             self.log(a)
@@ -637,8 +635,8 @@ class OnlineVote:
 
         self.confirm_voters()
 
-        self.set_worksheet()
         self.verify_email()
+        self.set_worksheet()
 
         self.generate_voter_ids()
 
