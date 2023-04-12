@@ -62,6 +62,19 @@
       happen automatically, be sure that your computer stays on and the
       window with the command line stays open.
 
+# Instructions for server
+1. Fill in the `config.toml` file as above on your local computer.
+2. Copy the config file using `scp /local/path/config.toml voting@avery.caltech.edu:~/voting`
+3. SSH into the server using `ssh voting@avery.caltech.edu`
+4. Navigate into the directory using `cd voting`
+5. Attempt to open tmux by typing `tmux attach`. If this says "no sessions, then
+      start tmux by running `tmux`.
+6. Activate the virtual environment by running `source ./venv/bin/activate`
+7. Run the script using `python election.py`
+8. Press `Ctrl+B, D` to detach from tmux. The script will now be running with
+      very little risk of interrupts. If you want to check on progress, run
+      `tmux attach` and detach with `Ctrl+B, D` when you're done.
+
 # Goals:
 1. Create a free, secure, transparent, anonymized, convinient online voting system.
 2. Remove the need for "middleman" survey services.
