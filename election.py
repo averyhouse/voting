@@ -65,7 +65,7 @@ class OnlineVote:
         """
         self.log("Program exited with code {}".format(code))
         with open(
-            time.strftime("logs/%Y-%m-%d_%H%M_logs.txt", time.localtime()), "w"
+            time.strftime("logs/%Y-%m-%d_%H%M_logs.txt", time.localtime()), "w+"
         ) as o:
             o.write("\n".join(self.logs))
             o.write("\n")
@@ -74,7 +74,7 @@ class OnlineVote:
             self.email_tampering()
         if code == -1:
             if self.df is not None and "voter_ids" in self.df.columns:
-                with open("voter_ids.txt", "w") as f:
+                with open("voter_ids.txt", "w+") as f:
                     f.write("\n".join(list(self.df["voter_ids"])))
 
         sys.exit(code)
