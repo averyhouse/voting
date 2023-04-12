@@ -648,7 +648,7 @@ class OnlineVote:
         while len(self.get_valid_votes()) < self.config["quorum"]:
             self.log("Starting 24 hour voting period...")
             start = time.time()
-            while time.time() - start < 60:
+            while time.time() - start < QUORUM_TIME_LIMIT:
                 self.update_votes()
                 time.sleep(5)
             self.update_votes()
