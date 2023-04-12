@@ -31,7 +31,7 @@ QUORUM_TIME_LIMIT = 86400
 
 
 class OnlineVote:
-    VOTE_TYPES = ["selective", "referendum"]
+    VOTE_TYPES = ["selective", "referendum", "2/3 referendum"]
 
     def __init__(self, config_file="config.toml"):
         self.config = None
