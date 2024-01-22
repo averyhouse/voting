@@ -7,16 +7,18 @@ import gspread
 import os
 import json
 import random
+import logging
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
-
 from googleapiclient.discovery import build
+
 from email.message import EmailMessage
 import base64
 import parse
 
 
+# Google API scopes
 SCOPES = [
     "https://mail.google.com/",
     "https://www.googleapis.com/auth/gmail.send",
@@ -24,10 +26,12 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
+# Length of randomly generated IDs, in characters
 LEN_VOTER_ID = 32
 LEN_SURVEY_ID = 8
 
-QUORUM_TIME_LIMIT = 86400
+# Time limit for election to hit quorum, in seconds
+QUORUM_TIME_LIMIT_S = 86400
 
 
 class OnlineVote:
@@ -35,7 +39,7 @@ class OnlineVote:
 
     def __init__(self, config_file="config.toml"):
         self.config = None
-        self.logs = []
+        self.logger = logging.getLogger()
 
         self.df = None
         self.votes = None
@@ -48,27 +52,40 @@ class OnlineVote:
         self.email = None
         self.password = None
 
-        self.log("Election created!")
+        self.configure_logger()
         self.set_config(config_file)
+        self.logger.info("Election created!")
 
-    def log(self, s):
+    def configure_logger(
+        self, filename=time.strftime("logs/%Y-%m-%d_%H%M_logs.log", time.localtime())
+    ):
         """
-        Logs string to stdout and log output which will be included in results email.
+        Configures a logger.
         """
-        out = time.strftime("[%Y-%m-%d %H:%M:%S]: ", time.localtime())
-        print(out + str(s))
-        self.logs.append(out + str(s))
+        self.logger.setLevel(logging.INFO)
+
+        log_formatter = logging.Formatter(
+            "%(asctime)s | %(levelname)s | %(message)s", "%m-%d-%Y %H:%M:%S"
+        )
+
+        stdout_log_handler = logging.StreamHandler(sys.stdout)
+        stdout_log_handler.setLevel(logging.INFO)
+        stdout_log_handler.setFormatter(log_formatter)
+
+        file_log_handler = logging.FileHandler(filename)
+        file_log_handler.setLevel(logging.INFO)
+        file_log_handler.setFormatter(log_formatter)
+
+        self.logger.addHandler(stdout_log_handler)
+        self.logger.addHandler(file_log_handler)
 
     def exit(self, code):
         """
-        Exits the program upon completion or error.
+        Exits the program upon completion or error. Code -2 indicated election
+        tampering, code -1 indicates other failure and saves a file with voter
+        ids for manual verification.
         """
-        self.log("Program exited with code {}".format(code))
-        with open(
-            time.strftime("logs/%Y-%m-%d_%H%M_logs.txt", time.localtime()), "w+"
-        ) as o:
-            o.write("\n".join(self.logs))
-            o.write("\n")
+        self.logger.critical("Program exited with code {}".format(code))
 
         if code == -2:
             self.email_tampering()
@@ -91,15 +108,13 @@ class OnlineVote:
         """
         try:
             if log:
-                self.log("Pinging host...")
+                self.logger.info("Checking internet connection...")
             socket.setdefaulttimeout(timeout)
-            socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(
-                (host, port)
-            )
+            socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
             if log:
-                self.log("Verified internet connection")
+                self.logger.info("Verified internet connection")
         except socket.error as e:
-            self.log("{}: {}".format(e.__class__.__name__, str(e)))
+            self.logger.error("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
 
     def set_voters(self, file):
@@ -108,7 +123,7 @@ class OnlineVote:
         or a Google Sheets location.
         """
         try:
-            self.log("Fetching voter emails...")
+            self.logger.info("Fetching voter emails...")
             if "https://docs.google.com/spreadsheets" in file:
                 self.gc = gspread.oauth(
                     credentials_filename="oauth.json",
@@ -130,7 +145,7 @@ class OnlineVote:
                     header=0,
                 )
         except Exception as e:
-            self.log("{}: {}".format(e.__class__.__name__, str(e)))
+            self.logger.error("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
 
     def confirm_voters(self):
@@ -138,14 +153,14 @@ class OnlineVote:
         Prompts the user running the election to confirm the list of eligible
         voters. Exits if list is not confirmed.
         """
-        self.log("List of voters participating:")
-        self.log("\n" + self.df.to_string())
+        self.logger.info("List of voters participating:")
+        self.logger.info("\n" + self.df.to_string())
 
         confirm = input("Does this list of voters look correct? [y/n]: ")
         if confirm == "y" or confirm == "Y":
-            self.log("List of voters confirmed by election official")
+            self.logger.info("List of voters confirmed by election official")
         else:
-            self.log("List of voters denied by election official")
+            self.logger.error("List of voters denied by election official")
             self.exit(-1)
 
     def generate_voter_ids(self):
@@ -157,48 +172,36 @@ class OnlineVote:
         used_ids = set()
         for _ in range(len(self.df)):
             random.seed(time.time())
-            n = random.randint(
-                10 ** (LEN_VOTER_ID - 1), (10**LEN_VOTER_ID) - 1
-            )
+            n = random.randint(10 ** (LEN_VOTER_ID - 1), (10**LEN_VOTER_ID) - 1)
             while n in used_ids:
-                n = random.randint(
-                    10 ** (LEN_VOTER_ID - 1), (10**LEN_VOTER_ID) - 1
-                )
+                n = random.randint(10 ** (LEN_VOTER_ID - 1), (10**LEN_VOTER_ID) - 1)
             voter_ids.append(str(n))
             used_ids.add(n)
 
-        self.df.insert(
-            loc=len(self.df.columns), column="voter_id", value=voter_ids
-        )
+        self.df.insert(loc=len(self.df.columns), column="voter_id", value=voter_ids)
 
         survey_ids = []
         used_ids = set()
         for _ in range(len(self.df)):
             random.seed(time.time())
-            n = random.randint(
-                10 ** (LEN_SURVEY_ID - 1), (10**LEN_SURVEY_ID) - 1
-            )
+            n = random.randint(10 ** (LEN_SURVEY_ID - 1), (10**LEN_SURVEY_ID) - 1)
             while n in used_ids:
-                n = random.randint(
-                    10 ** (LEN_SURVEY_ID - 1), (10**LEN_SURVEY_ID) - 1
-                )
+                n = random.randint(10 ** (LEN_SURVEY_ID - 1), (10**LEN_SURVEY_ID) - 1)
             survey_ids.append(str(n))
             used_ids.add(n)
 
-        self.df.insert(
-            loc=len(self.df.columns), column="survey_id", value=survey_ids
-        )
+        self.df.insert(loc=len(self.df.columns), column="survey_id", value=survey_ids)
 
     def set_config(self, file):
         """
         Fetch configuration settings from .toml file
         """
         try:
-            self.log("Fetching configuration...")
+            self.logger.info("Fetching configuration...")
             self.config = toml.load(file)
             self.check_config()
         except Exception as e:
-            self.log("{}: {}".format(e.__class__.__name__, str(e)))
+            self.logger.error("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
 
     def check_config(self):
@@ -220,24 +223,17 @@ class OnlineVote:
                     "quorum",
                 ]
             ):
-                self.log("FATAL: Configuration file missing fields")
+                self.logger.critical("Configuration file missing fields")
                 self.exit(-1)
             if self.config["vote_type"] not in self.VOTE_TYPES:
-                self.log("FATAL: Invalid vote type")
+                self.logger.critical("Invalid vote type")
                 self.exit(-1)
-            if not self.config["form_url"].startswith(
-                "https://docs.google.com/forms/"
-            ):
-                self.log("FATAL: Invalid form URL")
-                self.exit(-1)
-            if not os.path.exists("fetch_token/token.json"):
-                self.log(
-                    "FATAL: Please run the Go script to generate authorized user token before running the elections script"
-                )
+            if not self.config["form_url"].startswith("https://docs.google.com/forms/"):
+                self.logger.critical("Invalid form URL")
                 self.exit(-1)
 
         except Exception as e:
-            self.log(e)
+            self.logger.error(e)
             self.exit(-1)
 
     def confirm_config(self):
@@ -245,7 +241,7 @@ class OnlineVote:
         Prints the configuration of the vote and asks for manual confirmation
         from the person running the script.
         """
-        self.log("Confirming vote configuration...")
+        self.logger.info("Confirming vote configuration...")
         o = "\n" + "\n".join(
             ["{}: {}".format(key, self.config[key]) for key in self.config]
         )
@@ -253,33 +249,10 @@ class OnlineVote:
 
         confirm = input("Does this configuration look correct? [y/n]: ")
         if confirm == "y" or confirm == "Y":
-            self.log("Vote configuration confirmed by election official")
+            self.logger.info("Vote configuration confirmed by election official")
         else:
-            self.log("Vote configuration denied by election official")
+            self.logger.error("Vote configuration denied by election official")
             self.exit(-1)
-
-    def repair_token(self):
-        """
-        Fills in necessary client_id and client_secret for the access token file,
-        since for some reason Google doesn't generate them.
-        """
-        self.log("Repairing access token...")
-
-        with open("fetch_token/token.json", "r") as old:
-            token = json.load(old)
-
-        with open("oauth.json") as oauth:
-            oauth = json.load(oauth)
-
-        if "client_id" not in token:
-            token["client_id"] = oauth["installed"]["client_id"]
-        if "client_secret" not in token:
-            token["client_secret"] = oauth["installed"]["client_secret"]
-
-        with open("authorized_user.json", "w") as new:
-            json.dump(token, new)
-
-        self.log("Access token repaired!")
 
     def refresh_credentials(self, log=True):
         """
@@ -289,7 +262,7 @@ class OnlineVote:
         """
         if not self.creds.valid:
             if log:
-                self.log("Refreshing credentials...")
+                self.logger.info("Refreshing credentials...")
 
             if self.creds.expired and self.creds.refresh_token:
                 self.creds.refresh(Request())
@@ -308,7 +281,7 @@ class OnlineVote:
             self.worksheet = self.sh.worksheet(self.config["worksheet_title"])
 
             if log:
-                self.log("Credentials refreshed!")
+                self.logger.info("Credentials refreshed!")
 
     def set_worksheet(self):
         """
@@ -316,7 +289,7 @@ class OnlineVote:
         file urls
         """
         try:
-            self.log("Fetching results spreadsheet...")
+            self.logger.info("Fetching results spreadsheet...")
             self.refresh_credentials(log=False)
             self.gc = gspread.oauth(
                 credentials_filename="oauth.json",
@@ -325,7 +298,7 @@ class OnlineVote:
             self.sh = self.gc.open_by_url(self.config["worksheet_url"])
             self.worksheet = self.sh.worksheet(self.config["worksheet_title"])
         except Exception as e:
-            self.log("{}: {}".format(e.__class__.__name__, str(e)))
+            self.logger.error("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
 
     def update_votes(self):
@@ -339,7 +312,7 @@ class OnlineVote:
         if self.votes is not None:
             new = pd.DataFrame(data=raw[1:], columns=raw[0])
             if not self.votes.equals(new.head(n=len(self.votes))):
-                self.log("FATAL: Tampering detected, previous votes modified.")
+                self.logger.error("Tampering detected, previous votes modified.")
                 self.exit(-2)
             else:
                 self.votes = new
@@ -348,7 +321,7 @@ class OnlineVote:
 
     def verify_email(self):
         try:
-            self.log("Verifying email...")
+            self.logger.info("Verifying email...")
 
             self.creds = Credentials.from_authorized_user_file(
                 "authorized_user.json", SCOPES
@@ -356,14 +329,14 @@ class OnlineVote:
 
             self.service = build("gmail", "v1", credentials=self.creds)
 
-            self.log("Email verified!")
+            self.logger.info("Email verified!")
         except Exception as e:
-            self.log("{}: {}".format(e.__class__.__name__, str(e)))
-            self.log(e)
+            self.logger.error("{}: {}".format(e.__class__.__name__, str(e)))
+            self.logger.error(e)
             self.exit(-1)
 
     def email_links(self):
-        self.log("Sending election links...")
+        self.logger.info("Sending election links...")
         self.refresh_credentials()
 
         sent_message_ids = []
@@ -388,9 +361,7 @@ class OnlineVote:
             message["From"] = "averyexcomm@gmail.com"
             message["Subject"] = self.config["vote_title"]
 
-            encoded_message = base64.urlsafe_b64encode(
-                message.as_bytes()
-            ).decode()
+            encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
             send_message = (
                 self.service.users()
@@ -403,9 +374,9 @@ class OnlineVote:
 
             sent_message_ids.append(sent_message["id"])
 
-        self.log("Emails sent!")
+        self.logger.info("Emails sent!")
 
-        self.log("Deleting emails...")
+        self.logger.info("Deleting emails...")
 
         delete_messages = (
             self.service.users()
@@ -416,7 +387,7 @@ class OnlineVote:
 
         self.retry(delete_messages)
 
-        self.log("Emails deleted!")
+        self.logger.info("Emails deleted!")
 
     def email_tampering(self):
         # TODO: email out notification of tampering
@@ -425,7 +396,7 @@ class OnlineVote:
         pass
 
     def email_results(self, results):
-        self.log("Sending election results...")
+        self.logger.info("Sending election results...")
         self.refresh_credentials()
 
         with open("email_results.txt", "r") as f:
@@ -458,9 +429,7 @@ class OnlineVote:
             message["From"] = "averyexcomm@gmail.com"
             message["Subject"] = "RESULTS: " + self.config["vote_title"]
 
-            encoded_message = base64.urlsafe_b64encode(
-                message.as_bytes()
-            ).decode()
+            encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
             send_message = (
                 self.service.users()
@@ -473,9 +442,9 @@ class OnlineVote:
 
             sent_message_ids.append(sent_message["id"])
 
-        self.log("Emails sent!")
+        self.logger.info("Emails sent!")
 
-        self.log("Deleting emails...")
+        self.logger.info("Deleting emails...")
 
         delete_messages = (
             self.service.users()
@@ -486,7 +455,7 @@ class OnlineVote:
 
         self.retry(delete_messages)
 
-        self.log("Emails deleted!")
+        self.logger.info("Emails deleted!")
 
     def get_valid_votes(self):
         valid = self.votes.loc[
@@ -498,7 +467,7 @@ class OnlineVote:
         return valid
 
     def get_results_selective(self):
-        self.log("Started computing results for election...")
+        self.logger.info("Computing results for election...")
 
         self.update_votes()
 
@@ -518,8 +487,8 @@ class OnlineVote:
             candidates[pos].append(cand)
 
         for pos in positions:
-            self.log("-" * 80)
-            self.log("Starting runoff for {}".format(pos))
+            self.logger.info("-" * 80)
+            self.logger.info("Starting runoff for {}".format(pos))
 
             pos_votes = valid_votes[
                 [col for col in valid_votes if parse.parse(pos + " [{}]", col)]
@@ -553,23 +522,21 @@ class OnlineVote:
 
                     e = random.choice(elim)
 
-                    self.log("Candidate {} eliminated".format(", ".join(e)))
+                    self.logger.info("Candidate {} eliminated".format(", ".join(e)))
                     pos_votes = pos_votes.drop(e, axis=1)
 
-                    pos_votes = pos_votes.subtract(
-                        pos_votes.min(axis=1), axis=0
-                    ).add(1)
+                    pos_votes = pos_votes.subtract(pos_votes.min(axis=1), axis=0).add(1)
                 r += 1
 
-            self.log("Winner: {}".format(winner))
+            self.logger.info("Winner: {}".format(winner))
             results.append("{}: {}".format(pos, winner))
 
-            self.log("-" * 80)
+            self.logger.info("-" * 80)
 
         return "\n".join(results)
 
     def get_results_referendum(self, prop):
-        self.log("Started computing results for election...")
+        self.logger.info("Started computing results for election...")
 
         self.update_votes()
 
@@ -578,22 +545,22 @@ class OnlineVote:
         results = []
 
         for a in valid_votes.columns[1:-1]:
-            self.log("-" * 80)
+            self.logger.info("-" * 80)
 
             y = (valid_votes[a] == "YES").sum()
             n = (valid_votes[a] == "NO").sum()
 
             results.append(a)
-            self.log(a)
+            self.logger.info(a)
 
             if y / (y + n) >= prop:
                 results.append("PASSED ({} YES, {} NO)".format(y, n))
-                self.log("PASSED ({} YES, {} NO)".format(y, n))
+                self.logger.info("PASSED ({} YES, {} NO)".format(y, n))
             else:
                 results.append("REJECTED ({} YES, {} NO)".format(y, n))
-                self.log("REJECTED ({} YES, {} NO)".format(y, n))
+                self.logger.info("REJECTED ({} YES, {} NO)".format(y, n))
 
-            self.log("-" * 80)
+            self.logger.info("-" * 80)
 
         return "\n".join(results)
 
@@ -602,10 +569,8 @@ class OnlineVote:
             ret = func()
             return ret
         except:
-            self.log(
-                "Starting automatic retries for function {}".format(
-                    func.__name__
-                )
+            self.logger.info(
+                "Starting automatic retries for function {}".format(func.__name__)
             )
             attempts = 0
             while attempts < max_attempts:
@@ -617,17 +582,15 @@ class OnlineVote:
                     self.check_internet(log=False)
                     time.sleep(timeout ** (attempts // 10))
             if attempts == max_attempts:
-                self.log("Automatic retries failed, unable to connect.")
+                self.logger.error("Automatic retries failed, unable to connect.")
                 self.exit(-1)
             else:
-                self.log("Action successful after {} attempts".format(attempts))
+                self.logger.info("Action successful after {} attempts".format(attempts))
                 return ret
 
     def run_election(self):
-        self.log("Election started!")
+        self.logger.info("Election started!")
         self.check_internet(log=True)
-
-        self.repair_token()
 
         self.confirm_config()
 
@@ -644,19 +607,19 @@ class OnlineVote:
         self.update_votes()
 
         while len(self.get_valid_votes()) < self.config["quorum"]:
-            self.log("Starting 24 hour voting period...")
+            self.logger.info("Starting 24 hour voting period...")
             start = time.time()
-            while time.time() - start < QUORUM_TIME_LIMIT:
+            while time.time() - start < QUORUM_TIME_LIMIT_S:
                 self.update_votes()
                 time.sleep(5)
             self.update_votes()
-            self.log(
+            self.logger.info(
                 "{} valid votes collected out of {} for quorum".format(
                     len(self.get_valid_votes()), self.config["quorum"]
                 )
             )
 
-        self.log("Quorum Reached!")
+        self.logger.info("Quorum Reached!")
 
         if self.config["vote_type"] == "selective":
             results = self.get_results_selective()
