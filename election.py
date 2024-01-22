@@ -12,6 +12,7 @@ import logging
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
 
 from email.message import EmailMessage
 import base64
@@ -47,18 +48,22 @@ class OnlineVote:
         self.gc = None
         self.sh = None
         self.worksheet = None
-        self.creds = None
+
+        flow = InstalledAppFlow.from_client_secrets_file("oauth.json", SCOPES)
+        self.creds = flow.run_local_server(port=0)
+
+        with open("authorized_user.json", "w") as token:
+            token.write(self.creds.to_json())
 
         self.email = None
         self.password = None
 
+        self.log_file = time.strftime("logs/%Y-%m-%d_%H%M_logs.log", time.localtime())
         self.configure_logger()
         self.set_config(config_file)
         self.logger.info("Election created!")
 
-    def configure_logger(
-        self, filename=time.strftime("logs/%Y-%m-%d_%H%M_logs.log", time.localtime())
-    ):
+    def configure_logger(self):
         """
         Configures a logger.
         """
@@ -72,7 +77,7 @@ class OnlineVote:
         stdout_log_handler.setLevel(logging.INFO)
         stdout_log_handler.setFormatter(log_formatter)
 
-        file_log_handler = logging.FileHandler(filename)
+        file_log_handler = logging.FileHandler(self.log_file)
         file_log_handler.setLevel(logging.INFO)
         file_log_handler.setFormatter(log_formatter)
 
@@ -418,8 +423,10 @@ class OnlineVote:
             message = EmailMessage()
             message.set_content(content.format(**fields))
 
+            with open(self.log_file) as f:
+                logs = f.read()
             message.add_attachment(
-                "\n".join(self.logs).encode("utf-8"),
+                logs.encode("utf-8"),
                 maintype="text",
                 subtype="plain",
                 filename="logs.txt",
@@ -503,12 +510,12 @@ class OnlineVote:
             r = 1
             winner = None
             while winner is None:
-                self.log("Round {}:".format(r))
+                self.logger.info("Round {}:".format(r))
 
                 num_votes = (pos_votes == 1).sum()
 
                 for cand in pos_votes.columns:
-                    self.log("    {}: {}".format(cand, num_votes[cand]))
+                    self.logger.info("    {}: {}".format(cand, num_votes[cand]))
 
                     if num_votes[cand] > len(pos_votes) / 2:
                         winner = cand
