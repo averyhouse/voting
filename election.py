@@ -4,8 +4,6 @@ import sys
 import socket
 import toml
 import gspread
-import os
-import json
 import random
 import logging
 
@@ -101,7 +99,7 @@ class OnlineVote:
 
         sys.exit(code)
 
-    def check_internet(self, host="8.8.8.8", port=53, timeout=1, log=False):
+    def check_internet(self, host="8.8.8.8", port=53, timeout=1):
         """
         Checks for internet access. Exits if no internet.
 
@@ -112,12 +110,10 @@ class OnlineVote:
             timeout (int): time to wait for response
         """
         try:
-            if log:
-                self.logger.info("Checking internet connection...")
+            self.logger.debug("Checking internet connection...")
             socket.setdefaulttimeout(timeout)
             socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
-            if log:
-                self.logger.info("Verified internet connection")
+            self.logger.debug("Verified internet connection")
         except socket.error as e:
             self.logger.error("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
@@ -259,15 +255,14 @@ class OnlineVote:
             self.logger.error("Vote configuration denied by election official")
             self.exit(-1)
 
-    def refresh_credentials(self, log=True):
+    def refresh_credentials(self):
         """
         Uses the refresh token to refresh authorized credentials for the Oauth
         user. If you want to change which user is being logged in, delete
         the file and rerun the authorization fetcher script.
         """
         if not self.creds.valid:
-            if log:
-                self.logger.info("Refreshing credentials...")
+            self.logger.debug("Refreshing credentials...")
 
             if self.creds.expired and self.creds.refresh_token:
                 self.creds.refresh(Request())
@@ -285,8 +280,7 @@ class OnlineVote:
             self.sh = self.gc.open_by_url(self.config["worksheet_url"])
             self.worksheet = self.sh.worksheet(self.config["worksheet_title"])
 
-            if log:
-                self.logger.info("Credentials refreshed!")
+            self.logger.debug("Credentials refreshed!")
 
     def set_worksheet(self):
         """
@@ -295,7 +289,7 @@ class OnlineVote:
         """
         try:
             self.logger.info("Fetching results spreadsheet...")
-            self.refresh_credentials(log=False)
+            self.refresh_credentials()
             self.gc = gspread.oauth(
                 credentials_filename="oauth.json",
                 authorized_user_filename="authorized_user.json",
@@ -311,7 +305,7 @@ class OnlineVote:
         Fetches votes from the Google Form response Sheet. Exits if any tampering
         is detected.
         """
-        self.refresh_credentials(log=False)
+        self.refresh_credentials()
 
         raw = self.retry(self.worksheet.get_values)
         if self.votes is not None:
@@ -586,7 +580,7 @@ class OnlineVote:
                     ret = func()
                     break
                 except:
-                    self.check_internet(log=False)
+                    self.check_internet()
                     time.sleep(timeout ** (attempts // 10))
             if attempts == max_attempts:
                 self.logger.error("Automatic retries failed, unable to connect.")
@@ -597,7 +591,7 @@ class OnlineVote:
 
     def run_election(self):
         self.logger.info("Election started!")
-        self.check_internet(log=True)
+        self.check_internet()
 
         self.confirm_config()
 
