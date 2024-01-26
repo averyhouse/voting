@@ -216,8 +216,8 @@ class OnlineVote:
                 for key in [
                     "vote_type",
                     "form_url",
-                    "worksheet_url",
-                    "worksheet_title",
+                    "responses_url",
+                    "responses_sheet",
                     "vote_title",
                     "voters_file",
                     "voters_sheet",
@@ -277,8 +277,8 @@ class OnlineVote:
                 authorized_user_filename="authorized_user.json",
             )
 
-            self.sh = self.gc.open_by_url(self.config["worksheet_url"])
-            self.worksheet = self.sh.worksheet(self.config["worksheet_title"])
+            self.sh = self.gc.open_by_url(self.config["responses_url"])
+            self.worksheet = self.sh.worksheet(self.config["responses_sheet"])
 
             self.logger.debug("Credentials refreshed!")
 
@@ -294,8 +294,8 @@ class OnlineVote:
                 credentials_filename="oauth.json",
                 authorized_user_filename="authorized_user.json",
             )
-            self.sh = self.gc.open_by_url(self.config["worksheet_url"])
-            self.worksheet = self.sh.worksheet(self.config["worksheet_title"])
+            self.sh = self.gc.open_by_url(self.config["responses_url"])
+            self.worksheet = self.sh.worksheet(self.config["responses_sheet"])
         except Exception as e:
             self.logger.error("{}: {}".format(e.__class__.__name__, str(e)))
             self.exit(-1)
