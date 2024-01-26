@@ -89,30 +89,40 @@ complex IRV (instnt runoff voting) strategy. The workflow can be summarized as:
 
 # Instructions for server
 
-1. Fill in the `config.toml` file as described in
+1. Clone this repository into your local machine by running
+   `git clone https://github.com/averyhouse/voting.git`
+2. Fill in the `config.toml` file as described in
    [Filling out the config file](#filling-out-the-config-file) on your local
    computer.
-2. Copy the config file to the server using
+3. Copy the config file to the server using
    `scp /local/path/config.toml voting@avery.caltech.edu:~/voting`
    > You will be prompted for a password. It will be in the Excomm drive with
    > the Avery account passwords.
-3. Download an OAuth key from Google Cloud by:
+4. Download an OAuth key from Google Cloud by:
    1. Navigate to `console.cloud.google.com`
    2. Select the project `OnlineVoting` in the project menu (top left)
    3. Use the menu (top left) to navigate to `APIs & Services > Credentials`
    4. Download the `OnlineVoting` OAuth 2.0 Client ID as `oauth.json`
-4. Copy the `oauth.json` file to the server using
-   `scp /local/path/oauth.json voting@avery.caltech.edu:~/voting`
-   > This file may already be in the server folder, be sure to check before
+5. Authorize the user by running `python3 authorize.py`
+   - a file should be generated titled `authorized_user.json` on your local
+     machine
+   - if there are errors, run `pip install -r requirements.txt`
+6. Copy the `oauth.json` and `authorized_user.json` files to the server using
+   the commands
+   ```
+   scp /local/path/oauth.json voting@avery.caltech.edu:~/voting
+   scp /local/path/authorized_user.json voting@avery.caltech.edu:~/voting
+   ```
+   > These files may already be in the server folder, be sure to check before
    > doing steps 3 and 4.
-5. SSH into the server using `ssh voting@avery.caltech.edu`
-6. Navigate into the directory using `cd voting`
-7. (Optional) Update the server code by running `git pull origin master`
-8. Attempt to open tmux by typing `tmux attach`. If this says "no sessions, then
-   start tmux by running `tmux`.
-9. Activate the virtual environment by running `source ./venv/bin/activate`
-10. Run the script using `python election.py`
-11. Press `Ctrl+B, D` to detach from tmux. The script will now be running with
+7. SSH into the server using `ssh voting@avery.caltech.edu`
+8. Navigate into the directory using `cd voting`
+9. (Optional) Update the server code by running `git pull origin master`
+10. Attempt to open tmux by typing `tmux attach`. If this says "no sessions,
+    then start tmux by running `tmux`.
+11. Activate the virtual environment by running `source ./venv/bin/activate`
+12. Run the script using `python election.py`
+13. Press `Ctrl+B, D` to detach from tmux. The script will now be running with
     very little risk of interrupts. If you want to check on progress, run
     `tmux attach` and detach with `Ctrl+B, D` when you're done.
 

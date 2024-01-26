@@ -10,7 +10,6 @@ import logging
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
 
 from email.message import EmailMessage
 import base64
@@ -47,11 +46,9 @@ class OnlineVote:
         self.sh = None
         self.worksheet = None
 
-        flow = InstalledAppFlow.from_client_secrets_file("oauth.json", SCOPES)
-        self.creds = flow.run_local_server(port=0)
-
-        with open("authorized_user.json", "w") as token:
-            token.write(self.creds.to_json())
+        self.creds = Credentials.from_authorized_user_file(
+            "authorized_user.json", SCOPES
+        )
 
         self.email = None
         self.password = None
