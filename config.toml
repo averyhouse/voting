@@ -2,10 +2,10 @@
 # must be either "selective" or "referendum"
 vote_type = "selective"
 
-form_url =  ""
+form_url = ""
 
-worksheet_url = ""
-worksheet_title = ""
+responses_url = ""
+responses_sheet = ""
 
 vote_title = ""
 

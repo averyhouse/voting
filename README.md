@@ -132,7 +132,9 @@ complex IRV (instnt runoff voting) strategy. The workflow can be summarized as:
 
 # Filling out the config file
 
-- `vote_type`: link to Google form
+- `vote_type`: type of vote
+  - either `selective`, `referendum`, or `2/3 referendum`
+- `form_url`: link to Google form
   - needs to end in `viewform?usp=pp_url&entry.#########=`
 - `responses_url`: link to Google sheet where the form responses go
   - click "Share -> Get link"
@@ -144,6 +146,8 @@ complex IRV (instnt runoff voting) strategy. The workflow can be summarized as:
 - `voters_file`: Google sheet or csv file with names and emails of all voters
   - this sheet must have columns titled "First Name", "Nickname", "Last Name",
     and "Email"
+- `voters_sheet`: if using a Google sheet for the voters file, this is the title
+  of the tab in the sheet
 - `quorum`: number of votes necessary to conclude the voting period
 
 # Instructions for a local machine (DEPRECATED, WORK IN PROGRESS)
