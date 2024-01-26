@@ -117,7 +117,7 @@ complex IRV (instnt runoff voting) strategy. The workflow can be summarized as:
    scp /local/path/authorized_user.json voting@avery.caltech.edu:~/voting
    ```
    > These files may already be in the server folder, be sure to check before
-   > doing steps 3 and 4.
+   > doing steps 4 through 6.
 7. SSH into the server using `ssh voting@avery.caltech.edu`
 8. Navigate into the directory using `cd voting`
 9. (Optional) Update the server code by running `git pull origin master`
