@@ -104,9 +104,12 @@ complex IRV (instnt runoff voting) strategy. The workflow can be summarized as:
    3. Use the menu (top left) to navigate to `APIs & Services > Credentials`
    4. Download the `OnlineVoting` OAuth 2.0 Client ID as `oauth.json`
 5. Authorize the user by running `python3 authorize.py`
+   - this will open a browser window, log in using the `averyexcomm@gmail.com`
+     email address and grant all the permissions
    - a file should be generated titled `authorized_user.json` on your local
      machine
-   - if there are errors, run `pip install -r requirements.txt`
+   - if there are errors with missing modules, run
+     `pip install -r requirements.txt`
 6. Copy the `oauth.json` and `authorized_user.json` files to the server using
    the commands
    ```
@@ -120,9 +123,10 @@ complex IRV (instnt runoff voting) strategy. The workflow can be summarized as:
 9. (Optional) Update the server code by running `git pull origin master`
 10. Attempt to open tmux by typing `tmux attach`. If this says "no sessions,
     then start tmux by running `tmux`.
-11. Activate the virtual environment by running `source ./venv/bin/activate`
-12. Run the script using `python election.py`
-13. Press `Ctrl+B, D` to detach from tmux. The script will now be running with
+11. Run the script using `python3 election.py`
+    - if there are issues with missing modules, run
+      `pip install -r requirements.txt`
+12. Press `Ctrl+B, D` to detach from tmux. The script will now be running with
     very little risk of interrupts. If you want to check on progress, run
     `tmux attach` and detach with `Ctrl+B, D` when you're done.
 
