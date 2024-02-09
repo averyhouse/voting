@@ -95,9 +95,16 @@ complex IRV (instnt runoff voting) strategy. The workflow can be summarized as:
    [Filling out the config file](#filling-out-the-config-file) on your local
    computer.
 3. Copy the config file to the server using
-   `scp /local/path/config.toml voting@avery.caltech.edu:~/voting`
-   > You will be prompted for a password. It will be in the Excomm drive with
-   > the Avery account passwords.
+   `scp <local/path>/config.toml voting@avery.caltech.edu:~/voting`
+   - replace `<local/path>` with the directory the file is in on your local
+     computer.
+   - you will be prompted for a password. It will be in the Excomm drive with
+     the Avery account passwords.
+
+> Steps 4-6 are for creating authorized user keys that are then copied to the
+> server. They are most likely already set up, so check the server's `voting`
+> directory before performing these steps.
+
 4. Download an OAuth key from Google Cloud by:
    1. Navigate to `console.cloud.google.com`
    2. Select the project `OnlineVoting` in the project menu (top left)
@@ -116,12 +123,10 @@ complex IRV (instnt runoff voting) strategy. The workflow can be summarized as:
    scp /local/path/oauth.json voting@avery.caltech.edu:~/voting
    scp /local/path/authorized_user.json voting@avery.caltech.edu:~/voting
    ```
-   > These files may already be in the server folder, be sure to check before
-   > doing steps 4 through 6.
 7. SSH into the server using `ssh voting@avery.caltech.edu`
 8. Navigate into the directory using `cd voting`
 9. (Optional) Update the server code by running `git pull origin master`
-10. Attempt to open tmux by typing `tmux attach`. If this says "no sessions,
+10. Attempt to open tmux by typing `tmux attach`. If this says "no sessions",
     then start tmux by running `tmux`.
 11. Run the script using `python3 election.py`
     - if there are issues with missing modules, run

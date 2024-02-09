@@ -65,7 +65,7 @@ class OnlineVote:
         self.logger.setLevel(logging.INFO)
 
         log_formatter = logging.Formatter(
-            "%(asctime)s | %(levelname)s | %(message)s", "%m-%d-%Y %H:%M:%S"
+            "%(asctime)s | %(name)s | %(levelname)s | %(message)s", "%m-%d-%Y %H:%M:%S"
         )
 
         stdout_log_handler = logging.StreamHandler(sys.stdout)
@@ -249,7 +249,7 @@ class OnlineVote:
         if confirm == "y" or confirm == "Y":
             self.logger.info("Vote configuration confirmed by election official")
         else:
-            self.logger.error("Vote configuration denied by election official")
+            self.logger.critical("Vote configuration denied by election official")
             self.exit(-1)
 
     def refresh_credentials(self):
@@ -567,7 +567,7 @@ class OnlineVote:
             ret = func()
             return ret
         except:
-            self.logger.info(
+            self.logger.debug(
                 "Starting automatic retries for function {}".format(func.__name__)
             )
             attempts = 0
@@ -583,7 +583,9 @@ class OnlineVote:
                 self.logger.error("Automatic retries failed, unable to connect.")
                 self.exit(-1)
             else:
-                self.logger.info("Action successful after {} attempts".format(attempts))
+                self.logger.debug(
+                    "Action successful after {} attempts".format(attempts)
+                )
                 return ret
 
     def run_election(self):
