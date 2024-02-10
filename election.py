@@ -520,7 +520,7 @@ class OnlineVote:
 
                     e = random.choice(elim)
 
-                    self.logger.info("Candidate {} eliminated".format(", ".join(e)))
+                    self.logger.info("Candidate {} eliminated".format(e))
                     pos_votes = pos_votes.drop(e, axis=1)
 
                     pos_votes = pos_votes.subtract(pos_votes.min(axis=1), axis=0).add(1)
