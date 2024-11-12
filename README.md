@@ -257,5 +257,9 @@ modification.
 The last few numeric global variables may be tweaked to fit your survey's
 specific needs.
 
+# Contact:
+
+Contact derekqin8@gmail.com for questions/support with the script.
+
 The script should should be portable and has been tested on Windows 10 and
 Ubuntu 14
